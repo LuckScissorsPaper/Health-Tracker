@@ -56,7 +56,7 @@
     .card-label { font-size: 11px; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; font-family: 'DM Mono', monospace; margin-bottom: 8px; }
 
     /* Form elements */
-    select, input[type="text"], input[type="number"], textarea {
+    select, input[type="text"], input[type="number"], input[type="date"], textarea {
       width: 100%; background: var(--surface2); border: 1px solid var(--border);
       border-radius: var(--radius-sm); padding: 10px 12px; font-size: 15px;
       color: var(--text); font-family: 'Noto Sans KR', sans-serif;
@@ -64,6 +64,7 @@
       transition: border-color 0.15s;
     }
     select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
     select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
     textarea { min-height: 80px; resize: none; }
 
@@ -170,7 +171,8 @@
 
       <div class="card">
         <div class="card-label">날짜</div>
-        <input type="text" id="log-date" readonly>
+        <input type="date" id="log-date">
+        <div id="log-date-display" style="font-size:13px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;"></div>
       </div>
 
       <div class="card">
@@ -323,7 +325,11 @@ let chatHistory = [];
 // ── Init ──────────────────────────────────────────────
 function init() {
   const now = new Date();
-  document.getElementById('log-date').value = now.toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  const todayStr = now.toISOString().split('T')[0];
+  const dateInput = document.getElementById('log-date');
+  dateInput.value = todayStr;
+  updateDateDisplay(todayStr);
+  dateInput.addEventListener('change', () => updateDateDisplay(dateInput.value));
 
   const greetings = ['오늘도 화이팅!', '몸이 재산입니다', '꾸준함이 답이다', '한 세트 더!', '성장 중입니다'];
   document.getElementById('header-sub').textContent = greetings[Math.floor(Math.random()*greetings.length)];
@@ -399,6 +405,21 @@ function getSets() {
   return sets;
 }
 
+// ── Date helpers ───────────────────────────────────────
+function updateDateDisplay(val) {
+  if (!val) return;
+  const d = new Date(val + 'T00:00:00');
+  const display = d.toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  document.getElementById('log-date-display').textContent = display;
+}
+
+function getSelectedDate() {
+  const val = document.getElementById('log-date').value;
+  if (!val) return new Date().toLocaleDateString('ko-KR');
+  const d = new Date(val + 'T00:00:00');
+  return d.toLocaleDateString('ko-KR');
+}
+
 // ── Save log ───────────────────────────────────────────
 function saveLog() {
   const sel = document.getElementById('exercise-select').value;
@@ -417,7 +438,7 @@ function saveLog() {
   const isPR = curMaxW > prevMaxW && prevMaxW > 0;
 
   logs.unshift({
-    id: Date.now(), date: new Date().toLocaleDateString('ko-KR'), ts: Date.now(),
+    id: Date.now(), date: getSelectedDate(), ts: Date.now(),
     name, sets, note, vol, isPR
   });
   localStorage.setItem('gymLogs', JSON.stringify(logs));
