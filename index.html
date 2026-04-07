@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GymAI">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <title>GymAI — 운동 트래커</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface2: #1c1c1c;
+      --surface3: #242424;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #f0f0f0;
+      --text2: #888;
+      --text3: #555;
+      --accent: #c8f061;
+      --accent-dim: rgba(200,240,97,0.12);
+      --accent-text: #0a0a0a;
+      --red: #ff5c5c;
+      --blue: #5ca8ff;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --tab-h: 64px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Noto Sans KR', sans-serif; }
+
+    /* Layout */
+    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+    #header { padding: 16px 20px 10px; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+    #header h1 { font-family: 'DM Mono', monospace; font-size: 18px; letter-spacing: -0.5px; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+    #header h1 span { color: var(--text2); font-size: 13px; font-family: 'Noto Sans KR', sans-serif; font-weight: 400; }
+    #content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+    #bottom-nav { flex-shrink: 0; height: var(--tab-h); background: var(--surface); border-top: 1px solid var(--border); display: flex; padding-bottom: env(safe-area-inset-bottom); }
+    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: none; background: none; color: var(--text3); cursor: pointer; font-family: 'Noto Sans KR', sans-serif; font-size: 11px; transition: color 0.15s; }
+    .nav-btn.active { color: var(--accent); }
+    .nav-icon { font-size: 20px; line-height: 1; }
+
+    /* Sections */
+    .section { display: none; padding: 16px 16px 24px; }
+    .section.active { display: block; }
+
+    /* Cards */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+    .card-label { font-size: 11px; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; font-family: 'DM Mono', monospace; margin-bottom: 8px; }
+
+    /* Form elements */
+    select, input[type="text"], input[type="number"], textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 12px; font-size: 15px;
+      color: var(--text); font-family: 'Noto Sans KR', sans-serif;
+      -webkit-appearance: none; appearance: none; outline: none;
+      transition: border-color 0.15s;
+    }
+    select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+    textarea { min-height: 80px; resize: none; }
+
+    /* Set rows */
+    .set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .set-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); min-width: 32px; }
+    .set-row input { flex: 1; }
+    .set-unit { font-size: 12px; color: var(--text3); }
+    .btn-del { background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; padding: 4px; line-height: 1; }
+
+    /* Buttons */
+    .btn { border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 14px; cursor: pointer; background: var(--surface2); color: var(--text); font-family: 'Noto Sans KR', sans-serif; transition: all 0.15s; width: 100%; text-align: center; }
+    .btn:active { transform: scale(0.98); }
+    .btn-accent { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
+    .btn-accent:active { opacity: 0.85; }
+    .btn-ghost { background: none; border: 1px dashed var(--border2); color: var(--text2); font-size: 13px; padding: 9px; }
+    .btn-row { display: flex; gap: 8px; }
+
+    /* Metrics */
+    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; text-align: center; }
+    .metric-val { font-family: 'DM Mono', monospace; font-size: 22px; color: var(--accent); }
+    .metric-lbl { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+    /* History */
+    .history-item { border-bottom: 1px solid var(--border); padding: 12px 0; }
+    .history-item:last-child { border-bottom: none; }
+    .history-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
+    .history-name { font-size: 15px; font-weight: 700; margin: 3px 0; color: var(--text); }
+    .history-sets { font-size: 13px; color: var(--text2); line-height: 1.6; }
+    .history-note { font-size: 12px; color: var(--text3); margin-top: 4px; font-style: italic; }
+    .history-vol { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); margin-top: 2px; }
+    .pr-badge { display: inline-block; font-size: 10px; background: var(--accent); color: var(--accent-text); border-radius: 4px; padding: 1px 6px; margin-left: 6px; font-weight: 700; vertical-align: middle; }
+
+    /* Chat */
+    .chat-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+    .bubble { padding: 11px 14px; border-radius: 14px; font-size: 14px; line-height: 1.65; max-width: 88%; }
+    .bubble-ai { background: var(--surface2); color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+    .bubble-user { background: var(--accent); color: var(--accent-text); align-self: flex-end; font-weight: 500; border-bottom-right-radius: 4px; }
+    .quick-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .quick-btn { background: var(--surface2); border: 1px solid var(--border2); border-radius: 20px; padding: 6px 12px; font-size: 12px; color: var(--text2); cursor: pointer; font-family: 'Noto Sans KR', sans-serif; transition: all 0.15s; }
+    .quick-btn:active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .chat-footer { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 0; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input-row input { flex: 1; }
+    .send-btn { background: var(--accent); border: none; border-radius: var(--radius-sm); width: 44px; flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: opacity 0.15s; }
+    .send-btn:active { opacity: 0.8; }
+
+    /* Loading dots */
+    .dot { display: inline-block; animation: pulse 1.2s infinite; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulse { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+    /* Empty */
+    .empty { text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 14px; line-height: 1.8; }
+    .empty-icon { font-size: 40px; display: block; margin-bottom: 12px; }
+
+    /* Toast */
+    #toast { position: fixed; bottom: calc(var(--tab-h) + 12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: var(--accent-text); font-size: 13px; font-weight: 700; padding: 10px 20px; border-radius: 30px; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Section title */
+    .sec-title { font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace; letter-spacing: 0.5px; margin-bottom: 14px; }
+
+    /* Install banner */
+    #install-banner { background: var(--accent-dim); border: 1px solid rgba(200,240,97,0.25); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; display: none; }
+    #install-banner p { font-size: 13px; color: var(--text2); line-height: 1.5; margin-bottom: 8px; }
+    #install-banner strong { color: var(--accent); }
+
+    /* API key modal */
+    #api-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: flex-end; }
+    #api-modal.hidden { display: none; }
+    #api-modal-inner { background: var(--surface); border-top: 1px solid var(--border2); border-radius: 20px 20px 0 0; padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); width: 100%; }
+    #api-modal-inner h3 { font-size: 16px; margin-bottom: 6px; }
+    #api-modal-inner p { font-size: 13px; color: var(--text2); margin-bottom: 14px; line-height: 1.6; }
+
+    /* Settings */
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid var(--border); }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 14px; }
+    .settings-val { font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+    scrollbar-width: none;
+    #content::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>GymAI <span id="header-sub">오늘도 화이팅!</span></h1>
+  </div>
+
+  <div id="content">
+
+    <!-- 운동 기록 -->
+    <div id="sec-log" class="section active">
+      <div id="install-banner">
+        <p><strong>홈 화면에 추가</strong>하면 앱처럼 사용할 수 있어요!<br>Chrome 메뉴 → "홈 화면에 추가" 탭하세요.</p>
+        <button class="btn btn-accent" id="install-btn" style="width:auto;padding:8px 16px;font-size:13px;">앱으로 설치하기</button>
+      </div>
+
+      <div class="sec-title">// NEW WORKOUT</div>
+
+      <div class="card">
+        <div class="card-label">날짜</div>
+        <input type="text" id="log-date" readonly>
+      </div>
+
+      <div class="card">
+        <div class="card-label">운동 종목</div>
+        <select id="exercise-select" style="margin-bottom:8px;" onchange="onSelectChange()">
+          <option value="">— 선택 —</option>
+          <optgroup label="가슴">
+            <option>벤치프레스</option><option>인클라인 벤치프레스</option><option>덤벨 플라이</option>
+          </optgroup>
+          <optgroup label="등">
+            <option>데드리프트</option><option>바벨로우</option><option>풀업</option><option>랫풀다운</option>
+          </optgroup>
+          <optgroup label="어깨">
+            <option>오버헤드프레스</option><option>사이드 레터럴 레이즈</option>
+          </optgroup>
+          <optgroup label="하체">
+            <option>스쿼트</option><option>레그프레스</option><option>런지</option><option>레그컬</option>
+          </optgroup>
+          <optgroup label="팔">
+            <option>바벨컬</option><option>덤벨컬</option><option>트라이셉스 익스텐션</option>
+          </optgroup>
+          <option value="__custom__">직접 입력...</option>
+        </select>
+        <input type="text" id="exercise-custom" placeholder="운동 이름 직접 입력" style="display:none;">
+      </div>
+
+      <div class="card">
+        <div class="card-label">세트 기록</div>
+        <div id="sets-container"></div>
+        <button class="btn btn-ghost" onclick="addSet()" style="margin-top:4px;">+ 세트 추가</button>
+      </div>
+
+      <div class="card">
+        <div class="card-label">오늘 상태 메모</div>
+        <textarea id="log-note" placeholder="컨디션, 통증, 수면, 식사 등 자유롭게 기록하세요..."></textarea>
+      </div>
+
+      <button class="btn btn-accent" onclick="saveLog()">기록 저장 ✓</button>
+    </div>
+
+    <!-- 기록 보기 -->
+    <div id="sec-history" class="section">
+      <div class="sec-title">// MY RECORDS</div>
+      <div class="metric-grid">
+        <div class="metric"><div class="metric-val" id="m-sessions">0</div><div class="metric-lbl">세션</div></div>
+        <div class="metric"><div class="metric-val" id="m-kinds">0</div><div class="metric-lbl">종목</div></div>
+        <div class="metric"><div class="metric-val" id="m-volume">0</div><div class="metric-lbl">볼륨(t)</div></div>
+      </div>
+      <div class="card">
+        <div class="card-label" style="margin-bottom:10px;">최근 기록</div>
+        <div id="history-list"></div>
+      </div>
+    </div>
+
+    <!-- AI 코치 -->
+    <div id="sec-ai" class="section">
+      <div class="sec-title">// AI COACH</div>
+      <div id="api-warning" style="display:none;" class="card">
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px;">AI 코치를 사용하려면 <strong style="color:var(--accent)">Anthropic API 키</strong>가 필요합니다.</p>
+        <button class="btn btn-accent" style="padding:10px;font-size:13px;" onclick="showApiModal()">API 키 입력하기</button>
+      </div>
+      <div class="quick-btns" id="quick-btns">
+        <button class="quick-btn" onclick="quickAsk('이번 주 운동 전체 분석해줘')">📊 이번 주 분석</button>
+        <button class="quick-btn" onclick="quickAsk('무게 증량할 종목 알려줘')">📈 증량 시점</button>
+        <button class="quick-btn" onclick="quickAsk('오늘 운동 피드백 줘')">💬 오늘 피드백</button>
+        <button class="quick-btn" onclick="quickAsk('다음 운동 추천해줘')">🏋️ 다음 추천</button>
+        <button class="quick-btn" onclick="quickAsk('내 약점 근육 분석해줘')">🔍 약점 분석</button>
+        <button class="quick-btn" onclick="quickAsk('부상 위험 있는 패턴 있어?')">⚠️ 부상 체크</button>
+      </div>
+      <div class="card" style="margin-bottom:0;">
+        <div class="chat-list" id="chat-messages">
+          <div class="bubble bubble-ai">안녕하세요! AI 운동 코치입니다 💪<br>운동 기록을 분석해서 맞춤 조언을 드릴게요. 무엇이든 물어보세요!</div>
+        </div>
+        <div class="chat-footer">
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="질문하기..." onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="send-btn" onclick="sendChat()">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 설정 -->
+    <div id="sec-settings" class="section">
+      <div class="sec-title">// SETTINGS</div>
+      <div class="card">
+        <div class="card-label" style="margin-bottom:10px;">API 설정</div>
+        <div class="settings-row">
+          <span class="settings-label">Anthropic API 키</span>
+          <span class="settings-val" id="api-status">미설정</span>
+        </div>
+        <button class="btn" style="margin-top:10px;" onclick="showApiModal()">API 키 변경</button>
+      </div>
+      <div class="card">
+        <div class="card-label" style="margin-bottom:10px;">데이터</div>
+        <div class="settings-row">
+          <span class="settings-label">저장된 기록</span>
+          <span class="settings-val" id="data-count">0개</span>
+        </div>
+        <button class="btn" style="margin-top:10px;border-color:var(--red);color:var(--red);" onclick="clearData()">전체 데이터 삭제</button>
+      </div>
+      <div class="card">
+        <div class="card-label" style="margin-bottom:8px;">PWA 설치</div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px;">Chrome 브라우저 오른쪽 상단 메뉴(⋮) → <strong style="color:var(--text)">홈 화면에 추가</strong>를 탭하면 앱처럼 설치됩니다.</p>
+      </div>
+      <div style="text-align:center;padding:1rem 0;font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;">GymAI v1.0 — Powered by Claude</div>
+    </div>
+
+  </div><!-- /content -->
+
+  <div id="bottom-nav">
+    <button class="nav-btn active" onclick="switchSection('log')" id="nav-log">
+      <span class="nav-icon">✚</span>기록
+    </button>
+    <button class="nav-btn" onclick="switchSection('history')" id="nav-history">
+      <span class="nav-icon">◈</span>히스토리
+    </button>
+    <button class="nav-btn" onclick="switchSection('ai')" id="nav-ai">
+      <span class="nav-icon">◉</span>AI 코치
+    </button>
+    <button class="nav-btn" onclick="switchSection('settings')" id="nav-settings">
+      <span class="nav-icon">◎</span>설정
+    </button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- API Key Modal -->
+<div id="api-modal" class="hidden">
+  <div id="api-modal-inner">
+    <h3>Anthropic API 키 입력</h3>
+    <p>Anthropic 콘솔(console.anthropic.com)에서 발급한 API 키를 입력하세요. 키는 기기에만 저장되며 외부로 전송되지 않습니다.</p>
+    <input type="text" id="api-key-input" placeholder="sk-ant-..." style="margin-bottom:10px;">
+    <div class="btn-row">
+      <button class="btn" onclick="closeApiModal()">취소</button>
+      <button class="btn btn-accent" onclick="saveApiKey()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+let logs = JSON.parse(localStorage.getItem('gymLogs') || '[]');
+let apiKey = localStorage.getItem('gymApiKey') || '';
+let setCount = 0;
+let deferredPrompt = null;
+let chatHistory = [];
+
+// ── Init ──────────────────────────────────────────────
+function init() {
+  const now = new Date();
+  document.getElementById('log-date').value = now.toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'short'});
+
+  const greetings = ['오늘도 화이팅!', '몸이 재산입니다', '꾸준함이 답이다', '한 세트 더!', '성장 중입니다'];
+  document.getElementById('header-sub').textContent = greetings[Math.floor(Math.random()*greetings.length)];
+
+  addSet();
+  updateApiStatus();
+  updateDataCount();
+
+  // PWA install
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-banner').style.display = 'block';
+  });
+  document.getElementById('install-btn').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') showToast('앱 설치 완료! 🎉');
+    deferredPrompt = null;
+    document.getElementById('install-banner').style.display = 'none';
+  });
+
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+}
+
+// ── Navigation ─────────────────────────────────────────
+function switchSection(name) {
+  ['log','history','ai','settings'].forEach(n => {
+    document.getElementById('sec-'+n).classList.toggle('active', n===name);
+    document.getElementById('nav-'+n).classList.toggle('active', n===name);
+  });
+  if (name === 'history') renderHistory();
+  if (name === 'ai') checkApiWarning();
+  document.getElementById('content').scrollTop = 0;
+}
+
+// ── Exercise select ────────────────────────────────────
+function onSelectChange() {
+  const sel = document.getElementById('exercise-select').value;
+  document.getElementById('exercise-custom').style.display = sel === '__custom__' ? 'block' : 'none';
+}
+
+// ── Sets ───────────────────────────────────────────────
+function addSet() {
+  setCount++;
+  const c = document.getElementById('sets-container');
+  const d = document.createElement('div');
+  d.className = 'set-row';
+  d.id = 'set-' + setCount;
+  d.innerHTML = `
+    <span class="set-num">S${setCount}</span>
+    <input type="number" placeholder="무게 kg" min="0" step="0.5" style="max-width:100px;">
+    <span class="set-unit">×</span>
+    <input type="number" placeholder="횟수" min="0" step="1" style="max-width:80px;">
+    <button class="btn-del" onclick="this.parentElement.remove()">×</button>
+  `;
+  c.appendChild(d);
+}
+
+function getSets() {
+  const rows = document.querySelectorAll('.set-row');
+  const sets = [];
+  rows.forEach(r => {
+    const inputs = r.querySelectorAll('input');
+    const w = parseFloat(inputs[0].value) || 0;
+    const reps = parseInt(inputs[1].value) || 0;
+    if (w > 0 || reps > 0) sets.push({weight: w, reps});
+  });
+  return sets;
+}
+
+// ── Save log ───────────────────────────────────────────
+function saveLog() {
+  const sel = document.getElementById('exercise-select').value;
+  const custom = document.getElementById('exercise-custom').value.trim();
+  const name = (sel === '__custom__' || !sel) ? custom : sel;
+  if (!name) { showToast('종목을 입력해주세요'); return; }
+  const sets = getSets();
+  if (!sets.length) { showToast('세트를 추가해주세요'); return; }
+  const note = document.getElementById('log-note').value.trim();
+  const vol = sets.reduce((a, s) => a + s.weight * s.reps, 0);
+
+  // Check PR
+  const prev = logs.filter(l => l.name === name);
+  const prevMaxW = prev.length ? Math.max(...prev.flatMap(l => l.sets.map(s => s.weight))) : 0;
+  const curMaxW = Math.max(...sets.map(s => s.weight));
+  const isPR = curMaxW > prevMaxW && prevMaxW > 0;
+
+  logs.unshift({
+    id: Date.now(), date: new Date().toLocaleDateString('ko-KR'), ts: Date.now(),
+    name, sets, note, vol, isPR
+  });
+  localStorage.setItem('gymLogs', JSON.stringify(logs));
+
+  // Reset form
+  document.getElementById('exercise-select').value = '';
+  document.getElementById('exercise-custom').value = '';
+  document.getElementById('exercise-custom').style.display = 'none';
+  document.getElementById('sets-container').innerHTML = '';
+  document.getElementById('log-note').value = '';
+  setCount = 0;
+  addSet();
+  updateDataCount();
+
+  showToast(isPR ? `🏆 PR 달성! "${name}" 저장!` : `✓ "${name}" 기록 저장!`);
+}
+
+// ── History ────────────────────────────────────────────
+function renderHistory() {
+  const total = logs.length;
+  const kinds = new Set(logs.map(l => l.name)).size;
+  const vol = logs.reduce((a, l) => a + (l.vol||0), 0);
+  document.getElementById('m-sessions').textContent = total;
+  document.getElementById('m-kinds').textContent = kinds;
+  document.getElementById('m-volume').textContent = (vol/1000).toFixed(1);
+
+  const el = document.getElementById('history-list');
+  if (!logs.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-icon">🏋️</span>기록이 없습니다.<br>첫 운동을 기록해보세요!</div>';
+    return;
+  }
+  el.innerHTML = logs.slice(0, 50).map(l => {
+    const setStr = l.sets.map((s,i) => `${i+1}세트 ${s.weight}kg×${s.reps}`).join(' · ');
+    return `<div class="history-item">
+      <div class="history-date">${l.date}</div>
+      <div class="history-name">${l.name}${l.isPR ? '<span class="pr-badge">PR</span>' : ''}</div>
+      <div class="history-sets">${setStr}</div>
+      <div class="history-vol">볼륨 ${Math.round(l.vol).toLocaleString()}kg</div>
+      ${l.note ? `<div class="history-note">💬 ${l.note}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── AI Chat ────────────────────────────────────────────
+function checkApiWarning() {
+  document.getElementById('api-warning').style.display = apiKey ? 'none' : 'block';
+}
+
+function getLogsSummary() {
+  if (!logs.length) return '운동 기록 없음';
+  return logs.slice(0, 15).map(l => {
+    const sets = l.sets.map((s,i) => `${i+1}세트 ${s.weight}kg×${s.reps}회`).join(', ');
+    return `[${l.date}] ${l.name}: ${sets} / 볼륨:${Math.round(l.vol)}kg${l.note ? ' / 메모:'+l.note : ''}`;
+  }).join('\n');
+}
+
+async function sendChat(msg) {
+  const input = document.getElementById('chat-input');
+  const text = msg || input.value.trim();
+  if (!text) return;
+  if (!apiKey) { showApiModal(); return; }
+  input.value = '';
+
+  const chatEl = document.getElementById('chat-messages');
+  chatEl.innerHTML += `<div class="bubble bubble-user">${text}</div>`;
+
+  const loadId = 'load-' + Date.now();
+  chatEl.innerHTML += `<div class="bubble bubble-ai" id="${loadId}"><span class="dot">●</span><span class="dot">●</span><span class="dot">●</span></div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
+
+  chatHistory.push({ role: 'user', content: text });
+  if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
+
+  const systemPrompt = `당신은 전문 헬스 트레이너 AI입니다. 사용자의 운동 기록을 분석하여 실용적이고 구체적인 조언을 드립니다.
+
+사용자 운동 기록 (최근 15개):
+${getLogsSummary()}
+
+규칙:
+- 한국어로 답변
+- 3-5문장 이내로 간결하게
+- 무게, 세트, 횟수 등 구체적 수치 언급
+- 부상 위험이 있는 패턴 발견 시 반드시 경고
+- 증량 기준: 목표 횟수를 2회 연속 클리어 시 5-10% 증량 권장
+- 친근하지만 전문적인 톤`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: chatHistory
+      })
+    });
+    const data = await response.json();
+    if (data.error) {
+      document.getElementById(loadId).textContent = '오류: ' + (data.error.message || 'API 키를 확인해주세요');
+      return;
+    }
+    const reply = data.content?.[0]?.text || '응답 오류';
+    document.getElementById(loadId).textContent = reply;
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch(e) {
+    document.getElementById(loadId).textContent = '네트워크 오류가 발생했습니다.';
+  }
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function quickAsk(q) {
+  switchSection('ai');
+  setTimeout(() => sendChat(q), 100);
+}
+
+// ── API Key ────────────────────────────────────────────
+function showApiModal() {
+  document.getElementById('api-key-input').value = apiKey;
+  document.getElementById('api-modal').classList.remove('hidden');
+}
+function closeApiModal() {
+  document.getElementById('api-modal').classList.add('hidden');
+}
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  apiKey = key;
+  localStorage.setItem('gymApiKey', key);
+  updateApiStatus();
+  closeApiModal();
+  showToast(key ? '✓ API 키 저장 완료' : 'API 키가 삭제되었습니다');
+  checkApiWarning();
+}
+function updateApiStatus() {
+  document.getElementById('api-status').textContent = apiKey ? '설정됨 ✓' : '미설정';
+}
+
+// ── Settings ───────────────────────────────────────────
+function updateDataCount() {
+  document.getElementById('data-count').textContent = logs.length + '개';
+}
+function clearData() {
+  if (!confirm('모든 운동 기록을 삭제할까요? 되돌릴 수 없습니다.')) return;
+  logs = [];
+  localStorage.removeItem('gymLogs');
+  updateDataCount();
+  showToast('데이터가 삭제되었습니다');
+}
+
+// ── Toast ──────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Close modal on backdrop ────────────────────────────
+document.getElementById('api-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeApiModal();
+});
+
+init();
+</script>
+</body>
+</html>
