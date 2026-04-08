@@ -148,6 +148,11 @@
     .settings-label { font-size: 14px; }
     .settings-val { font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace; }
 
+    .history-ai-comment { background: var(--accent-dim); border: 1px solid rgba(200,240,97,0.2); border-radius: var(--radius-sm); padding: 8px 10px; margin-top: 8px; font-size: 12px; color: var(--text2); line-height: 1.6; }
+    .history-ai-comment-label { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--accent); margin-bottom: 3px; letter-spacing: 0.5px; }
+    .history-ai-btn { background: none; border: 1px dashed rgba(200,240,97,0.3); border-radius: var(--radius-sm); padding: 5px 10px; font-size: 11px; color: var(--accent); cursor: pointer; margin-top: 6px; font-family: 'Noto Sans KR', sans-serif; }
+    .history-ai-btn:active { opacity: 0.7; }
+    .ai-comment-dots { font-size: 11px; color: var(--text3); }
     scrollbar-width: none;
     #content::-webkit-scrollbar { display: none; }
   </style>
@@ -189,7 +194,7 @@
             <option>오버헤드프레스</option><option>사이드 레터럴 레이즈</option><option>페이스풀</option>
           </optgroup>
           <optgroup label="하체">
-            <option>스쿼트</option><option>레그프레스</option><option>런지</option><option>레그컬</option>
+            <option>스쿼트</option><option>레그프레스</option><option>런지</option><option>레그컬</option><option>레그익스텐션</option>
           </optgroup>
           <optgroup label="팔">
             <option>바벨컬</option><option>덤벨컬</option><option>트라이셉스 익스텐션</option>
@@ -439,7 +444,7 @@ function saveLog() {
 
   logs.unshift({
     id: Date.now(), date: getSelectedDate(), ts: Date.now(),
-    name, sets, note, vol, isPR
+    name, sets, note, vol, isPR, aiComment: null
   });
   localStorage.setItem('gymLogs', JSON.stringify(logs));
 
@@ -454,6 +459,12 @@ function saveLog() {
   updateDataCount();
 
   showToast(isPR ? `🏆 PR 달성! "${name}" 저장!` : `✓ "${name}" 기록 저장!`);
+
+  // Auto AI comment if API key exists
+  if (apiKey) {
+    switchSection('history');
+    setTimeout(() => generateAiComment(logs[0].id), 400);
+  }
 }
 
 // ── History ────────────────────────────────────────────
@@ -472,12 +483,19 @@ function renderHistory() {
   }
   el.innerHTML = logs.slice(0, 50).map(l => {
     const setStr = l.sets.map((s,i) => `${i+1}세트 ${s.weight}kg×${s.reps}`).join(' · ');
-    return `<div class="history-item">
+    let aiBlock = '';
+    if (l.aiComment) {
+      aiBlock = `<div class="history-ai-comment"><div class="history-ai-comment-label">AI COACH</div>${l.aiComment}</div>`;
+    } else if (apiKey) {
+      aiBlock = `<button class="history-ai-btn" onclick="generateAiComment(${l.id})">✦ AI 코멘트 받기</button>`;
+    }
+    return `<div class="history-item" id="log-item-${l.id}">
       <div class="history-date">${l.date}</div>
       <div class="history-name">${l.name}${l.isPR ? '<span class="pr-badge">PR</span>' : ''}</div>
       <div class="history-sets">${setStr}</div>
       <div class="history-vol">볼륨 ${Math.round(l.vol).toLocaleString()}kg</div>
       ${l.note ? `<div class="history-note">💬 ${l.note}</div>` : ''}
+      <div id="ai-block-${l.id}">${aiBlock}</div>
     </div>`;
   }).join('');
 }
@@ -493,6 +511,57 @@ function getLogsSummary() {
     const sets = l.sets.map((s,i) => `${i+1}세트 ${s.weight}kg×${s.reps}회`).join(', ');
     return `[${l.date}] ${l.name}: ${sets} / 볼륨:${Math.round(l.vol)}kg${l.note ? ' / 메모:'+l.note : ''}`;
   }).join('\n');
+}
+
+// ── AI Comment on log ──────────────────────────────────
+async function generateAiComment(logId) {
+  const log = logs.find(l => l.id === logId);
+  if (!log || !apiKey) return;
+
+  const block = document.getElementById('ai-block-' + logId);
+  if (!block) { switchSection('history'); setTimeout(() => generateAiComment(logId), 300); return; }
+
+  block.innerHTML = `<div class="history-ai-comment"><div class="history-ai-comment-label">AI COACH</div><span class="ai-comment-dots"><span class="dot">●</span><span class="dot">●</span><span class="dot">●</span></span></div>`;
+
+  // Get same exercise history for context
+  const sameEx = logs.filter(l => l.name === log.name && l.id !== logId).slice(0, 5);
+  const prevStr = sameEx.length
+    ? sameEx.map(l => `[${l.date}] ${l.sets.map(s => `${s.weight}kg×${s.reps}`).join(', ')} 볼륨:${Math.round(l.vol)}kg`).join('\n')
+    : '이전 기록 없음';
+
+  const thisStr = log.sets.map((s,i) => `${i+1}세트 ${s.weight}kg×${s.reps}회`).join(', ');
+
+  const prompt = `운동 기록:
+종목: ${log.name}
+날짜: ${log.date}
+오늘 기록: ${thisStr} (총 볼륨 ${Math.round(log.vol)}kg)${log.isPR ? ' ★PR달성' : ''}
+${log.note ? `상태 메모: ${log.note}` : ''}
+
+이전 ${log.name} 기록:
+${prevStr}
+
+위 기록을 바탕으로 2-3문장의 간결한 코치 코멘트를 작성해주세요. 이전 기록과 비교해서 발전 여부, 증량 권장 여부, 또는 주의사항을 언급해주세요. 이모지 1-2개 포함해 친근하게 써주세요.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    if (data.error) { block.innerHTML = ''; return; }
+    const comment = data.content?.[0]?.text || '';
+    // Save comment to log
+    const idx = logs.findIndex(l => l.id === logId);
+    if (idx !== -1) { logs[idx].aiComment = comment; localStorage.setItem('gymLogs', JSON.stringify(logs)); }
+    block.innerHTML = `<div class="history-ai-comment"><div class="history-ai-comment-label">AI COACH</div>${comment}</div>`;
+  } catch(e) {
+    block.innerHTML = '';
+  }
 }
 
 async function sendChat(msg) {
